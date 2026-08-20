@@ -1,0 +1,445 @@
+/* ============================================
+   DESIGN TOKENS
+   Change a value here and it updates everywhere
+   that uses the matching CSS variable below.
+   ============================================ */
+:root {
+  /* Brand colors */
+  --color-primary: #2f7d4f;       /* fresh green - main brand color */
+  --color-primary-dark: #205c39;  /* used for hover states */
+  --color-primary-light: #e8f5ec; /* light green background tint */
+  --color-accent: #f4a300;        /* warm amber - used for main CTAs like "Order Milk" */
+  --color-accent-dark: #cf8b00;
+
+  /* Neutral colors */
+  --color-bg: #ffffff;
+  --color-bg-soft: #f7f9f7;
+  --color-text: #1f2937;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+
+  /* Status colors */
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+
+  /* Shape */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg-soft);
+}
+
+h1, h2, h3, h4 {
+  font-weight: 600;
+  margin: 0 0 var(--space-sm);
+}
+
+p {
+  margin: 0 0 var(--space-sm);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Reusable button styles, used instead of Bootstrap's default
+   btn-primary so every CTA matches our brand colors. */
+.btn-brand {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.btn-brand:hover {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  color: #fff;
+}
+
+.btn-accent {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #1f2937;
+  font-weight: 600;
+}
+.btn-accent:hover {
+  background: var(--color-accent-dark);
+  border-color: var(--color-accent-dark);
+  color: #1f2937;
+}
+
+.section {
+  padding: var(--space-xl) 0;
+}
+
+.card-plain {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Small persistent delivery-location strip, sits below the existing
+   Header without changing it. */
+.location-indicator-bar {
+  background: var(--color-bg-soft);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Customer Control Center quick-action cards */
+.quick-action-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.quick-action-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+@media (prefers-reduced-motion: reduce) {
+  .quick-action-card {
+    transition: none;
+  }
+  .quick-action-card:hover {
+    transform: none;
+  }
+}
+
+/* Products page — search */
+.search-input-wrap {
+  position: relative;
+}
+.search-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+.search-input {
+  padding-left: 40px;
+}
+
+/* Products page — horizontally scrolling category chips (never wraps
+   into an ugly multi-line block on narrow screens) */
+.category-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+.category-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.category-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
+}
+.category-chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.category-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+.category-chip.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+/* Product card (Products page + Home's Popular Products) */
+.product-card.card-plain {
+  border-color: var(--color-primary-light);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.product-card.card-plain:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+.product-card-image-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--color-bg-soft);
+}
+.product-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+.product-card.card-plain:hover .product-card-image {
+  transform: scale(1.04);
+}
+.product-card-badge {
+  position: absolute;
+  top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.product-card-badge-category {
+  left: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-primary-dark);
+}
+.product-card-badge-popular {
+  right: 10px;
+  background: var(--color-accent);
+  color: #1f2937;
+}
+.product-card-price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-card.card-plain,
+  .product-card-image {
+    transition: none;
+  }
+  .product-card.card-plain:hover {
+    transform: none;
+  }
+  .product-card.card-plain:hover .product-card-image {
+    transform: none;
+  }
+}
+
+/* Header navigation links */
+.nav-link-custom {
+  color: var(--color-text);
+  font-weight: 500;
+}
+.nav-link-custom:hover {
+  color: var(--color-primary);
+}
+.nav-link-custom.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* Hero carousel (Home page) */
+.hero-carousel {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--color-primary-light), #ffffff);
+}
+.hero-carousel:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.hero-carousel-track {
+  display: flex;
+  transition: transform 0.6s ease;
+  touch-action: pan-y;
+}
+.hero-carousel-slide {
+  flex: 0 0 100%;
+  min-width: 100%;
+}
+.hero-carousel-heading {
+  font-size: 1.9rem;
+}
+@media (min-width: 768px) {
+  .hero-carousel-heading {
+    font-size: 2.5rem;
+  }
+}
+.hero-carousel-image {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+@media (min-width: 768px) {
+  .hero-carousel-image {
+    height: 320px;
+  }
+}
+@media (min-width: 992px) {
+  .hero-carousel-image {
+    height: 400px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-carousel-track {
+    transition: none;
+  }
+}
+.hero-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hero-carousel-arrow:hover {
+  background: rgba(0, 0, 0, 0.45);
+}
+.hero-carousel-arrow-prev {
+  left: 12px;
+}
+.hero-carousel-arrow-next {
+  right: 12px;
+}
+.hero-carousel-dots {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 999px;
+}
+.hero-carousel-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+}
+.hero-carousel-dot.active {
+  width: 20px;
+  background: #ffffff;
+}
+
+/* KPI / summary cards (Admin Dashboard + Admin View) */
+.summary-card {
+  border-top: 3px solid var(--color-primary-light);
+}
+.summary-card-value {
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+/* Admin layout */
+.admin-content-max {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+.admin-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 1040;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+.admin-sidebar-open {
+  transform: translateX(0);
+}
+@media (min-width: 992px) {
+  .admin-sidebar {
+    position: sticky;
+    transform: none;
+  }
+}
+.admin-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1030;
+}
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+}
+.admin-nav-link:hover {
+  background: var(--color-primary-light);
+}
+.admin-nav-link.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+.admin-nav-group-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  padding: 0 12px;
+  margin-bottom: 6px;
+}
+.admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
