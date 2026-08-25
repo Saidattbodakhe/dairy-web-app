@@ -1,8 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { getOrders } from '../../utils/orders'
-import { getAddresses, addAddress, removeAddress } from '../../utils/addresses'
+import {
+  getCustomerAddresses,
+  createCustomerAddress,
+  updateCustomerAddress,
+  deleteCustomerAddress,
+  setDefaultCustomerAddress,
+} from '../../services/addressService'
 import { getLoyaltySummary } from '../../utils/loyalty'
 import { getSubscriptions } from '../../utils/subscriptions'
 import StatusBadge from '../../components/StatusBadge'
@@ -51,10 +57,37 @@ function Profile() {
     offers: false,
   })
 
-  const [addresses, setAddresses] = useState(getAddresses)
+  const [addresses, setAddresses] = useState([])
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(true)
+  const [addressesLoadError, setAddressesLoadError] = useState('')
   const [showAddressForm, setShowAddressForm] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState(null)
   const [addressForm, setAddressForm] = useState(initialAddressForm)
   const [addressError, setAddressError] = useState('')
+  const [isSavingAddress, setIsSavingAddress] = useState(false)
+  const [addressActionError, setAddressActionError] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+    async function loadAddresses() {
+      setIsLoadingAddresses(true)
+      try {
+        const fetched = await getCustomerAddresses()
+        if (isMounted) {
+          setAddresses(fetched)
+          setAddressesLoadError('')
+        }
+      } catch (err) {
+        if (isMounted) setAddressesLoadError(err.message)
+      } finally {
+        if (isMounted) setIsLoadingAddresses(false)
+      }
+    }
+    loadAddresses()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   function toggleNotification(key) {
     setNotifications((current) => ({ ...current, [key]: !current[key] }))
@@ -64,7 +97,29 @@ function Profile() {
     setAddressForm((current) => ({ ...current, [field]: value }))
   }
 
-  function handleAddAddress(event) {
+  function handleStartAddAddress() {
+    setEditingAddressId(null)
+    setAddressForm(initialAddressForm)
+    setAddressError('')
+    setShowAddressForm((current) => !current)
+  }
+
+  function handleStartEditAddress(address) {
+    setEditingAddressId(address.id)
+    setAddressForm({
+      label: address.label,
+      line1: address.line1,
+      line2: address.line2 || '',
+      landmark: address.landmark || '',
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    })
+    setAddressError('')
+    setShowAddressForm(true)
+  }
+
+  async function handleSaveAddress(event) {
     event.preventDefault()
 
     if (!addressForm.label.trim()) return setAddressError('Give this address a label (e.g. Home).')
@@ -74,14 +129,45 @@ function Profile() {
     if (!/^\d{6}$/.test(addressForm.pincode.trim())) return setAddressError('Enter a valid 6-digit pincode.')
 
     setAddressError('')
-    setAddresses(addAddress(addressForm))
-    setAddressForm(initialAddressForm)
-    setShowAddressForm(false)
+    setIsSavingAddress(true)
+    try {
+      if (editingAddressId) {
+        const updated = await updateCustomerAddress(editingAddressId, addressForm)
+        setAddresses((current) => current.map((address) => (address.id === updated.id ? updated : address)))
+      } else {
+        const created = await createCustomerAddress(addressForm)
+        setAddresses((current) => [...current, created])
+      }
+      setAddressForm(initialAddressForm)
+      setEditingAddressId(null)
+      setShowAddressForm(false)
+    } catch (err) {
+      setAddressError(err.message)
+    } finally {
+      setIsSavingAddress(false)
+    }
   }
 
-  function handleRemoveAddress(addressId) {
-    if (window.confirm('Remove this saved address?')) {
-      setAddresses(removeAddress(addressId))
+  async function handleRemoveAddress(addressId) {
+    if (!window.confirm('Remove this saved address?')) return
+
+    setAddressActionError('')
+    try {
+      await deleteCustomerAddress(addressId)
+      setAddresses((current) => current.filter((address) => address.id !== addressId))
+    } catch (err) {
+      setAddressActionError(err.message)
+    }
+  }
+
+  async function handleSetDefaultAddress(addressId) {
+    setAddressActionError('')
+    try {
+      await setDefaultCustomerAddress(addressId)
+      const refreshed = await getCustomerAddresses()
+      setAddresses(refreshed)
+    } catch (err) {
+      setAddressActionError(err.message)
     }
   }
 
@@ -140,7 +226,7 @@ function Profile() {
         <div>
           <div className="fs-4 fw-bold">{customer.name}</div>
           <span className="badge text-bg-secondary mb-2">Customer</span>
-          <div className="text-muted">Phone: {customer.phone}</div>
+          <div className="text-muted">Phone: {customer.phone || 'Not provided'}</div>
         </div>
       </div>
 
@@ -149,7 +235,7 @@ function Profile() {
           <div className="card-plain p-4 mb-4">
             <h2 className="h5 mb-3">Personal Information</h2>
             <div className="mb-2"><span className="text-muted">Name:</span> {customer.name}</div>
-            <div className="mb-2"><span className="text-muted">Phone:</span> {customer.phone}</div>
+            <div className="mb-2"><span className="text-muted">Phone:</span> {customer.phone || 'Not provided'}</div>
             <div><span className="text-muted">Email:</span> {customer.email || 'Not provided'}</div>
           </div>
 
@@ -159,45 +245,74 @@ function Profile() {
               <button
                 type="button"
                 className="btn btn-outline-secondary btn-sm"
-                onClick={() => setShowAddressForm((current) => !current)}
+                onClick={handleStartAddAddress}
               >
                 {showAddressForm ? 'Cancel' : 'Add Address'}
               </button>
             </div>
 
-            <div className="d-flex flex-column gap-2 mb-3">
-              {addresses.map((address) => (
-                <div
-                  key={address.id}
-                  className="border rounded-3 p-3 d-flex justify-content-between align-items-start gap-2"
-                >
-                  <div>
-                    <div className="fw-semibold mb-1">
-                      <i className="bi bi-house-door-fill me-1"></i> {address.label}
+            {addressActionError && <div className="text-danger small mb-2">{addressActionError}</div>}
+
+            {isLoadingAddresses ? (
+              <p className="text-muted small mb-3">Loading your saved addresses…</p>
+            ) : addressesLoadError ? (
+              <div className="alert alert-danger small mb-3">{addressesLoadError}</div>
+            ) : (
+              <div className="d-flex flex-column gap-2 mb-3">
+                {addresses.map((address) => (
+                  <div
+                    key={address.id}
+                    className="border rounded-3 p-3 d-flex justify-content-between align-items-start gap-2"
+                  >
+                    <div>
+                      <div className="fw-semibold mb-1">
+                        <i className="bi bi-house-door-fill me-1"></i> {address.label}
+                        {address.isDefault && <span className="badge text-bg-secondary ms-2">Default</span>}
+                      </div>
+                      <div className="text-muted small">
+                        {address.line1}
+                        {address.line2 ? `, ${address.line2}` : ''}
+                        {address.landmark ? `, Near ${address.landmark}` : ''}, {address.city},{' '}
+                        {address.state} - {address.pincode}
+                      </div>
                     </div>
-                    <div className="text-muted small">
-                      {address.line1}
-                      {address.line2 ? `, ${address.line2}` : ''}
-                      {address.landmark ? `, Near ${address.landmark}` : ''}, {address.city},{' '}
-                      {address.state} - {address.pincode}
+                    <div className="d-flex flex-column align-items-end gap-1">
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0"
+                          onClick={() => handleStartEditAddress(address)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-link text-danger btn-sm p-0"
+                          onClick={() => handleRemoveAddress(address.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      {!address.isDefault && (
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0"
+                          onClick={() => handleSetDefaultAddress(address.id)}
+                        >
+                          Set as Default
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-link text-danger btn-sm p-0"
-                    onClick={() => handleRemoveAddress(address.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              {addresses.length === 0 && (
-                <p className="text-muted small mb-0">No saved addresses yet.</p>
-              )}
-            </div>
+                ))}
+                {addresses.length === 0 && (
+                  <p className="text-muted small mb-0">No saved addresses yet.</p>
+                )}
+              </div>
+            )}
 
             {showAddressForm && (
-              <form onSubmit={handleAddAddress} className="border-top pt-3">
+              <form onSubmit={handleSaveAddress} className="border-top pt-3">
                 <div className="row g-2 mb-2">
                   <div className="col-12 col-sm-6">
                     <input
@@ -260,7 +375,9 @@ function Profile() {
                   </div>
                 </div>
                 {addressError && <div className="text-danger small mb-2">{addressError}</div>}
-                <button type="submit" className="btn btn-brand btn-sm w-100">Save Address</button>
+                <button type="submit" className="btn btn-brand btn-sm w-100" disabled={isSavingAddress}>
+                  {isSavingAddress ? 'Saving…' : editingAddressId ? 'Update Address' : 'Save Address'}
+                </button>
               </form>
             )}
           </div>

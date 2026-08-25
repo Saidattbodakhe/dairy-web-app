@@ -9,7 +9,7 @@ import { useProducts } from '../../context/ProductContext'
 function ProductDetail() {
   const { id } = useParams()
   const { addItem } = useCart()
-  const { getProductById } = useProducts()
+  const { getProductById, isLoading } = useProducts()
   const rawProduct = getProductById(id)
   const product = rawProduct && rawProduct.isActive ? rawProduct : null
   const activeVariants = product ? product.variants.filter((variant) => variant.isActive) : []
@@ -21,6 +21,19 @@ function ProductDetail() {
   const [selectedVariantId, setSelectedVariantId] = useState(activeVariants[0]?.id)
   const [quantity, setQuantity] = useState(1)
   const [justAdded, setJustAdded] = useState(false)
+
+  // Products load asynchronously now — without this, a valid product
+  // would flash "Not Found" for a moment on every direct visit/refresh,
+  // since getProductById() has nothing to find until the fetch resolves.
+  if (isLoading) {
+    return (
+      <div className="container py-5 text-center">
+        <div className="spinner-border text-secondary" role="status">
+          <span className="visually-hidden">Loading…</span>
+        </div>
+      </div>
+    )
+  }
 
   if (!product) {
     return (

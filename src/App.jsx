@@ -26,6 +26,7 @@ import AdminProduction from './pages/admin/AdminProduction'
 import AdminReports from './pages/admin/AdminReports'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminComingSoon from './pages/admin/AdminComingSoon'
+import AdminHomePage from './pages/admin/AdminHomePage'
 
 import NotFound from './pages/NotFound'
 
@@ -62,6 +63,7 @@ function App() {
         <Route path="customers" element={<AdminCustomers />} />
         <Route path="deliveries" element={<AdminDeliveries />} />
         <Route path="inventory" element={<AdminInventory />} />
+        <Route path="home-page" element={<AdminHomePage />} />
         <Route path="production" element={<AdminProduction />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="settings" element={<AdminSettings />} />

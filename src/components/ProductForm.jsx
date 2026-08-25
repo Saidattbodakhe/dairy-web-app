@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { uploadProductImage } from '../services/productService'
+import { fallbackProductImage } from '../data/mockProducts'
 
 function makeEmptyVariant() {
   return {
@@ -16,10 +18,14 @@ function makeEmptyVariant() {
 
 // Used for both "Add Product" and "Edit Product" — pass an existing
 // product as initialProduct to edit it, or leave it out to start blank.
-function ProductForm({ initialProduct, onSave, onCancel }) {
+function ProductForm({ initialProduct, categories, onSave, onCancel }) {
+  // Generated up front (not just on save) so an image can be uploaded
+  // to Storage under products/{id}/... even before a new product's row
+  // exists yet — createProduct() then inserts using this same id.
+  const [draftProductId] = useState(() => initialProduct?.id || crypto.randomUUID())
   const [name, setName] = useState(initialProduct?.name ?? '')
   const [description, setDescription] = useState(initialProduct?.description ?? '')
-  const [category, setCategory] = useState(initialProduct?.category ?? '')
+  const [category, setCategory] = useState(initialProduct?.category ?? categories?.[0]?.name ?? '')
   const [image, setImage] = useState(initialProduct?.image ?? '')
   const [isActive, setIsActive] = useState(initialProduct?.isActive ?? true)
   const [variants, setVariants] = useState(
@@ -28,6 +34,7 @@ function ProductForm({ initialProduct, onSave, onCancel }) {
       : [makeEmptyVariant()]
   )
   const [error, setError] = useState('')
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   function updateVariant(index, field, value) {
     setVariants((current) =>
@@ -41,6 +48,23 @@ function ProductForm({ initialProduct, onSave, onCancel }) {
 
   function removeVariantRow(index) {
     setVariants((current) => current.filter((_, i) => i !== index))
+  }
+
+  async function handleImageChange(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingImage(true)
+    setError('')
+    try {
+      const publicUrl = await uploadProductImage(draftProductId, file)
+      setImage(publicUrl)
+    } catch (uploadError) {
+      console.error('Product image upload failed:', uploadError.message)
+      setError('Image upload failed. Please try a different image.')
+    } finally {
+      setIsUploadingImage(false)
+    }
   }
 
   function handleSubmit(event) {
@@ -66,6 +90,7 @@ function ProductForm({ initialProduct, onSave, onCancel }) {
     }))
 
     onSave({
+      id: draftProductId,
       name: name.trim(),
       description: description.trim(),
       shortDescription: description.trim().slice(0, 60),
@@ -103,24 +128,39 @@ function ProductForm({ initialProduct, onSave, onCancel }) {
       <div className="row g-3 mb-3">
         <div className="col-12 col-sm-6">
           <label className="form-label" htmlFor="productCategory">Category</label>
-          <input
+          <select
             id="productCategory"
-            type="text"
-            className="form-control"
+            className="form-select"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-          />
+          >
+            {(categories ?? []).map((option) => (
+              <option key={option.id} value={option.name}>{option.name}</option>
+            ))}
+          </select>
         </div>
         <div className="col-12 col-sm-6">
-          <label className="form-label" htmlFor="productImage">Image URL (demo)</label>
-          <input
-            id="productImage"
-            type="text"
-            className="form-control"
-            placeholder="Leave blank to keep placeholder"
-            value={image}
-            onChange={(e) => setImage(e.target.value)}
-          />
+          <label className="form-label" htmlFor="productImage">Product Image</label>
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <img
+              src={image || fallbackProductImage}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.onerror = null
+                event.currentTarget.src = fallbackProductImage
+              }}
+              style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }}
+            />
+            <input
+              id="productImage"
+              type="file"
+              accept="image/*"
+              className="form-control form-control-sm"
+              onChange={handleImageChange}
+              disabled={isUploadingImage}
+            />
+          </div>
+          {isUploadingImage && <div className="text-muted small">Uploading…</div>}
         </div>
       </div>
 
@@ -233,7 +273,9 @@ function ProductForm({ initialProduct, onSave, onCancel }) {
       {error && <div className="text-danger small mt-2 mb-3">{error}</div>}
 
       <div className="d-flex gap-2 mt-4">
-        <button type="submit" className="btn btn-brand flex-grow-1">Save Product</button>
+        <button type="submit" className="btn btn-brand flex-grow-1" disabled={isUploadingImage}>
+          Save Product
+        </button>
         <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>Cancel</button>
       </div>
     </form>

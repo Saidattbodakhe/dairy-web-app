@@ -12,6 +12,7 @@ const SECTION_TITLES = {
   customers: 'Customers',
   deliveries: 'Deliveries',
   inventory: 'Inventory',
+  'home-page': 'Home Page',
   production: 'Milk Production',
   reports: 'Reports',
   settings: 'Settings',

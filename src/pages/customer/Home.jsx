@@ -32,7 +32,7 @@ const futureProducts = [
 ]
 
 function Home() {
-  const { products } = useProducts()
+  const { products, isLoading: isLoadingProducts } = useProducts()
   const { isOutsideServiceArea, areaLabel } = useServiceLocation()
   const [notified, setNotified] = useState(getProductInterest)
 
@@ -81,13 +81,21 @@ function Home() {
       <section id="popular-products" className="section pt-0">
         <div className="container">
           <h2 className="mb-4">Popular Products</h2>
-          <div className="row g-4">
-            {popularProducts.map((product) => (
-              <div className="col-12 col-sm-6 col-lg-3" key={product.id}>
-                <ProductCard product={product} />
+          {isLoadingProducts ? (
+            <div className="text-center py-4">
+              <div className="spinner-border text-secondary" role="status">
+                <span className="visually-hidden">Loading…</span>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="row g-4">
+              {popularProducts.map((product) => (
+                <div className="col-12 col-sm-6 col-lg-3" key={product.id}>
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

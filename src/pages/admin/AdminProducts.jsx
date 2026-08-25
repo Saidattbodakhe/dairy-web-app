@@ -1,15 +1,24 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import Modal from '../../components/Modal'
 import ProductForm from '../../components/ProductForm'
 import StatusBadge from '../../components/StatusBadge'
 import { getStartingPrice, fallbackProductImage } from '../../data/mockProducts'
 import { useProducts } from '../../context/ProductContext'
+import { fetchCategories } from '../../services/productService'
 
 function AdminProducts() {
-  const { products, addProduct, updateProduct, toggleProductActive } = useProducts()
+  const { products, isLoading, addProduct, updateProduct, toggleProductActive } = useProducts()
+  const [categories, setCategories] = useState([])
   const [editingProduct, setEditingProduct] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [expandedProductId, setExpandedProductId] = useState(null)
+  const [actionError, setActionError] = useState('')
+
+  useEffect(() => {
+    fetchCategories()
+      .then(setCategories)
+      .catch((error) => console.error('Failed to load categories:', error.message))
+  }, [])
 
   function openAddForm() {
     setEditingProduct(null)
@@ -26,17 +35,29 @@ function AdminProducts() {
     setEditingProduct(null)
   }
 
-  function handleSave(productData) {
-    if (editingProduct) {
-      updateProduct(editingProduct.id, productData)
-    } else {
-      addProduct(productData)
+  async function handleSave(productData) {
+    setActionError('')
+    try {
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, productData)
+      } else {
+        await addProduct(productData)
+      }
+      closeForm()
+    } catch (error) {
+      console.error('Failed to save product:', error.message)
+      setActionError('Unable to save this product. Please try again.')
     }
-    closeForm()
   }
 
-  function handleToggleActive(productId) {
-    toggleProductActive(productId)
+  async function handleToggleActive(productId) {
+    setActionError('')
+    try {
+      await toggleProductActive(productId)
+    } catch (error) {
+      console.error('Failed to update product status:', error.message)
+      setActionError('Unable to update this product. Please try again.')
+    }
   }
 
   function toggleExpanded(productId) {
@@ -52,6 +73,15 @@ function AdminProducts() {
         </button>
       </div>
 
+      {actionError && <div className="alert alert-danger">{actionError}</div>}
+
+      {isLoading ? (
+        <div className="text-center text-muted py-5">
+          <div className="spinner-border text-secondary" role="status">
+            <span className="visually-hidden">Loading…</span>
+          </div>
+        </div>
+      ) : (
       <div className="card-plain p-0">
         <div className="table-responsive">
           <table className="table align-middle mb-0">
@@ -152,10 +182,16 @@ function AdminProducts() {
           </table>
         </div>
       </div>
+      )}
 
       {showForm && (
         <Modal title={editingProduct ? 'Edit Product' : 'Add Product'} onClose={closeForm}>
-          <ProductForm initialProduct={editingProduct} onSave={handleSave} onCancel={closeForm} />
+          <ProductForm
+            initialProduct={editingProduct}
+            categories={categories}
+            onSave={handleSave}
+            onCancel={closeForm}
+          />
         </Modal>
       )}
     </div>

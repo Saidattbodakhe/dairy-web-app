@@ -1,8 +1,9 @@
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import StatusBadge from '../../components/StatusBadge'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
-import { getOrders } from '../../utils/orders'
+import { getCustomerOrders } from '../../services/orderService'
 import { useProducts } from '../../context/ProductContext'
 
 function Orders() {
@@ -10,6 +11,35 @@ function Orders() {
   const { addItem } = useCart()
   const { getProductById } = useProducts()
   const navigate = useNavigate()
+
+  const [orders, setOrders] = useState([])
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    if (!isLoggedIn) return
+
+    let isMounted = true
+    async function loadOrders() {
+      setIsLoadingOrders(true)
+      try {
+        const fetched = await getCustomerOrders()
+        if (isMounted) {
+          setOrders(fetched)
+          setLoadError('')
+        }
+      } catch (err) {
+        if (isMounted) setLoadError(err.message)
+      } finally {
+        if (isMounted) setIsLoadingOrders(false)
+      }
+    }
+
+    loadOrders()
+    return () => {
+      isMounted = false
+    }
+  }, [isLoggedIn])
 
   if (isLoading) {
     return (
@@ -34,9 +64,7 @@ function Orders() {
     )
   }
 
-  const orders = getOrders()
-
-  // Adds an old order's items back to the cart at TODAY's mock prices,
+  // Adds an old order's items back to the cart at TODAY's live prices,
   // not the price the customer paid before. Anything that no longer
   // exists in the product catalog is skipped instead of breaking.
   function handleReorder(order) {
@@ -64,7 +92,15 @@ function Orders() {
 
       <h2 className="h4 mb-3">Recent Orders</h2>
 
-      {orders.length === 0 ? (
+      {isLoadingOrders ? (
+        <div className="text-center py-5">
+          <div className="spinner-border text-secondary" role="status">
+            <span className="visually-hidden">Loading…</span>
+          </div>
+        </div>
+      ) : loadError ? (
+        <div className="alert alert-danger">{loadError}</div>
+      ) : orders.length === 0 ? (
         <div className="card-plain p-5 text-center">
           <i className="bi bi-receipt fs-1 text-muted d-block mb-3"></i>
           <p className="text-muted mb-0">You haven't placed any orders yet.</p>
@@ -72,7 +108,7 @@ function Orders() {
       ) : (
         <div className="d-flex flex-column gap-3">
           {orders.map((order) => (
-            <div className="card-plain p-4" key={order.orderNumber}>
+            <div className="card-plain p-4" key={order.id}>
               <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
                 <div>
                   <div className="fw-bold">{order.orderNumber}</div>
@@ -101,7 +137,7 @@ function Orders() {
               </div>
 
               <div className="d-flex gap-2">
-                <Link to={`/orders/${order.orderNumber}`} className="btn btn-outline-secondary btn-sm">
+                <Link to={`/orders/${order.id}`} className="btn btn-outline-secondary btn-sm">
                   View Details
                 </Link>
                 <button type="button" className="btn btn-brand btn-sm" onClick={() => handleReorder(order)}>

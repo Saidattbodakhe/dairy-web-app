@@ -1,18 +1,100 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import StatusBadge from '../../components/StatusBadge'
 import StarRating from '../../components/StarRating'
 import DeliveryTracker from '../../components/DeliveryTracker'
-import { ORDER_STATUS_FLOW, getOrderByNumber } from '../../utils/orders'
+import { ORDER_STATUS_FLOW, getCustomerOrderById, cancelCustomerOrder } from '../../services/orderService'
 import { getReviewForOrder, submitReview } from '../../utils/reviews'
+
+// Matches cancel_order()'s customer-side rule in 0008_order_functions.sql
+// — a customer may only cancel while the order is still Pending/Confirmed.
+const CUSTOMER_CANCELLABLE_STATUSES = ['Pending', 'Confirmed']
 
 function OrderDetail() {
   const { id } = useParams()
-  const order = getOrderByNumber(id)
-  const [review, setReview] = useState(() => (order ? getReviewForOrder(order.orderNumber) : null))
+
+  const [order, setOrder] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+
+  const [review, setReview] = useState(null)
   const [draftRating, setDraftRating] = useState(0)
   const [draftText, setDraftText] = useState('')
   const [reviewError, setReviewError] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadOrder() {
+      setIsLoading(true)
+      try {
+        const fetched = await getCustomerOrderById(id)
+        if (!isMounted) return
+        setOrder(fetched)
+        setLoadError('')
+        setReview(fetched ? getReviewForOrder(fetched.orderNumber) : null)
+      } catch (err) {
+        if (isMounted) setLoadError(err.message)
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadOrder()
+    return () => {
+      isMounted = false
+    }
+  }, [id])
+
+  async function handleCancel() {
+    if (!window.confirm(`Cancel order ${order.orderNumber}?`)) return
+
+    setCancelError('')
+    setIsCancelling(true)
+    try {
+      await cancelCustomerOrder(order.id)
+      const refreshed = await getCustomerOrderById(id)
+      setOrder(refreshed)
+    } catch (err) {
+      setCancelError(err.message)
+    } finally {
+      setIsCancelling(false)
+    }
+  }
+
+  function handleSubmitReview(event) {
+    event.preventDefault()
+    if (draftRating === 0) {
+      setReviewError('Please choose a star rating.')
+      return
+    }
+    setReviewError('')
+    setReview(submitReview(order.orderNumber, draftRating, draftText.trim()))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container py-5 text-center">
+        <div className="spinner-border text-secondary" role="status">
+          <span className="visually-hidden">Loading…</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="container py-5 text-center">
+        <i className="bi bi-exclamation-triangle-fill fs-1 text-muted d-block mb-3"></i>
+        <h1>Something Went Wrong</h1>
+        <p className="text-muted">{loadError}</p>
+        <Link to="/orders" className="btn btn-brand">Back to My Orders</Link>
+      </div>
+    )
+  }
 
   if (!order) {
     return (
@@ -26,16 +108,7 @@ function OrderDetail() {
   }
 
   const currentStepIndex = ORDER_STATUS_FLOW.indexOf(order.status)
-
-  function handleSubmitReview(event) {
-    event.preventDefault()
-    if (draftRating === 0) {
-      setReviewError('Please choose a star rating.')
-      return
-    }
-    setReviewError('')
-    setReview(submitReview(order.orderNumber, draftRating, draftText.trim()))
-  }
+  const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(order.status)
 
   return (
     <div className="container py-4 py-md-5">
@@ -76,21 +149,6 @@ function OrderDetail() {
               </div>
             ))}
           </div>
-
-          {order.statusHistory?.length > 0 && (
-            <div className="mt-3 pt-3 border-top">
-              <div className="fw-semibold small mb-2">Order Timeline</div>
-              {order.statusHistory.map((entry) => (
-                <div
-                  key={`${entry.status}-${entry.at}`}
-                  className="d-flex justify-content-between small text-muted mb-1"
-                >
-                  <span>{entry.status}</span>
-                  <span>{new Date(entry.at).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -107,13 +165,15 @@ function OrderDetail() {
             {order.items.map((item) => (
               <div
                 className="d-flex justify-content-between align-items-center py-2 border-bottom"
-                key={`${item.productId}-${item.variantId}`}
+                key={item.id}
               >
                 <div>
                   <div className="fw-semibold">{item.productName}</div>
-                  <div className="text-muted small">{item.variantName} × {item.quantity}</div>
+                  <div className="text-muted small">
+                    {item.variantName} × {item.quantity}
+                  </div>
                 </div>
-                <div className="fw-semibold">₹{item.price * item.quantity}</div>
+                <div className="fw-semibold">₹{item.lineTotal}</div>
               </div>
             ))}
 
@@ -150,7 +210,7 @@ function OrderDetail() {
         </div>
 
         <div className="col-12 col-lg-4">
-          <div className="card-plain p-4">
+          <div className="card-plain p-4 mb-4">
             <h2 className="h5 mb-3">Delivery &amp; Payment</h2>
             <div className="d-flex justify-content-between mb-2">
               <span className="text-muted">Delivery Date</span>
@@ -172,6 +232,25 @@ function OrderDetail() {
               Demo payment only — no real payment gateway is connected in this phase.
             </p>
           </div>
+
+          {order.status === 'Cancelled' ? (
+            <div className="card-plain p-4">
+              <StatusBadge status="Cancelled" />
+              <p className="text-muted small mt-2 mb-0">This order has been cancelled.</p>
+            </div>
+          ) : canCancel && (
+            <div className="card-plain p-4">
+              {cancelError && <div className="alert alert-danger small">{cancelError}</div>}
+              <button
+                type="button"
+                className="btn btn-outline-danger w-100"
+                onClick={handleCancel}
+                disabled={isCancelling}
+              >
+                {isCancelling ? 'Cancelling…' : 'Cancel Order'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

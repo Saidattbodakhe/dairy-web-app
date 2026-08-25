@@ -1,31 +1,58 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { mockProducts as defaultProducts } from '../data/mockProducts'
+import * as productService from '../services/productService'
 
-// The ONE source of truth for product data. Every page that shows or
-// edits products (Home, Products, Product Details, Cart pricing,
-// Checkout, Admin Products) reads from this same Context — nobody
-// keeps a separate copy. Admin edits update this state immediately
-// (so customer pages re-render with no refresh needed) and persist to
-// localStorage, seeded from mockProducts.js the first time it runs.
-const PRODUCTS_STORAGE_KEY = 'mockProductsState'
+// The ONE source of truth for product data — Supabase-backed. Every
+// page that shows or edits products (Home, Products, Product Details,
+// Cart pricing, Checkout, Admin Products) reads from this same
+// Context; nobody keeps a separate copy, and there is no mock/
+// localStorage fallback if Supabase is unreachable — isLoading/error
+// are exposed so consumers can show a proper state instead of
+// silently pretending the catalog is empty.
 const ProductContext = createContext(null)
 
-function loadInitialProducts() {
-  try {
-    const raw = localStorage.getItem(PRODUCTS_STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    // fall through to defaults below
-  }
-  return defaultProducts
-}
-
 export function ProductProvider({ children }) {
-  const [products, setProducts] = useState(loadInitialProducts)
+  const [products, setProducts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products))
-  }, [products])
+    let isMounted = true
+
+    async function loadProducts() {
+      try {
+        const data = await productService.fetchProducts()
+        if (isMounted) {
+          setProducts(data)
+          setError(null)
+        }
+      } catch (err) {
+        console.error('Failed to load products:', err.message)
+        if (isMounted) setError('Unable to load products right now. Please try again later.')
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadProducts()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  // Used after any admin mutation (add/update/toggle) to bring every
+  // consumer back in sync with the database — not tied to the mount
+  // effect above, so it's safe to call from an event handler.
+  async function refreshProducts() {
+    try {
+      const data = await productService.fetchProducts()
+      setProducts(data)
+      setError(null)
+    } catch (err) {
+      console.error('Failed to refresh products:', err.message)
+      setError('Unable to load products right now. Please try again later.')
+    }
+  }
 
   function getProductById(id) {
     return products.find((product) => product.id === id)
@@ -35,43 +62,40 @@ export function ProductProvider({ children }) {
     return products.find((product) => product.name === name)
   }
 
-  function addProduct(productData) {
-    setProducts((current) => {
-      const newProduct = { ...productData, id: `custom-${current.length + 1}` }
-      return [...current, newProduct]
-    })
+  // Admin "add" — inserts into Supabase, then refetches so every
+  // consumer sees the new product immediately.
+  async function addProduct(productData) {
+    await productService.createProduct(productData)
+    await refreshProducts()
   }
 
-  // Admin "edit" — merges changes into the existing product (name,
-  // description, category, image, isActive, variants, etc.) without
-  // touching its id, so every existing reference (cart lines, past
-  // orders, routes) still resolves to the same product.
-  function updateProduct(productId, productData) {
-    setProducts((current) =>
-      current.map((product) =>
-        product.id === productId ? { ...product, ...productData, id: product.id } : product
-      )
-    )
+  // Admin "edit" — merges changes (name/description/category/image/
+  // isActive/variants) into the existing product, then refetches.
+  async function updateProduct(productId, productData) {
+    await productService.updateProduct(productId, productData)
+    await refreshProducts()
   }
 
-  // Soft deactivate/reactivate — the product object is never deleted,
-  // just flipped inactive, so Admin can still see and restore it while
+  // Soft deactivate/reactivate — the row is never deleted, just
+  // flipped inactive, so Admin can still see and restore it while
   // customers stop being able to purchase it.
-  function toggleProductActive(productId) {
-    setProducts((current) =>
-      current.map((product) =>
-        product.id === productId ? { ...product, isActive: !product.isActive } : product
-      )
-    )
+  async function toggleProductActive(productId) {
+    const product = getProductById(productId)
+    if (!product) return
+    await productService.setProductActive(productId, !product.isActive)
+    await refreshProducts()
   }
 
   const value = {
     products,
+    isLoading,
+    error,
     getProductById,
     getProductByName,
     addProduct,
     updateProduct,
     toggleProductActive,
+    refreshProducts,
   }
 
   return <ProductContext.Provider value={value}>{children}</ProductContext.Provider>

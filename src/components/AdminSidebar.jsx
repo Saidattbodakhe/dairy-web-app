@@ -23,6 +23,7 @@ const menuGroups = [
     items: [
       { label: 'Products', icon: 'bi-box-seam', to: '/admin/products' },
       { label: 'Inventory', icon: 'bi-boxes', to: '/admin/inventory' },
+      { label: 'Home Page', icon: 'bi-window', to: '/admin/home-page' },
     ],
   },
   {

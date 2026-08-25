@@ -17,7 +17,7 @@ const sortOptions = [
 ]
 
 function Products() {
-  const { products } = useProducts()
+  const { products, isLoading, error } = useProducts()
   const { isOutsideServiceArea } = useServiceLocation()
   const [searchTerm, setSearchTerm] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
@@ -100,6 +100,16 @@ function Products() {
               Notify Me When You Launch Here
             </Link>
           </div>
+        </div>
+      ) : isLoading ? (
+        <div className="container pb-5 text-center py-5">
+          <div className="spinner-border text-secondary" role="status">
+            <span className="visually-hidden">Loading…</span>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="container pb-5">
+          <div className="alert alert-danger text-center">{error}</div>
         </div>
       ) : (
       <div className="container pb-5">
