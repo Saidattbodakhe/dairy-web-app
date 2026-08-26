@@ -19,7 +19,7 @@ import { ProductProvider } from './context/ProductContext.jsx'
 // write through it.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/dairy-web-app/">
       <AuthProvider>
         <AdminAuthProvider>
           <ProductProvider>
