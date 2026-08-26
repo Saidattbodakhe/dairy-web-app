@@ -6,6 +6,7 @@ import {
   updateAdminOrderStatus,
   cancelAdminOrder,
 } from '../../services/orderService'
+import { markCodPaymentCollected } from '../../services/paymentService'
 
 const paymentStatuses = ['Paid', 'Pending', 'Failed']
 const allStatuses = [...ORDER_STATUS_FLOW, 'Cancelled']
@@ -92,6 +93,18 @@ function AdminOrders() {
     setActionError('')
     try {
       await cancelAdminOrder(order.id)
+      await loadOrders()
+    } catch (err) {
+      setActionError(err.message)
+    }
+  }
+
+  async function handleMarkCodCollected(order) {
+    if (!window.confirm(`Mark order ${order.orderNumber} as paid (cash collected)?`)) return
+
+    setActionError('')
+    try {
+      await markCodPaymentCollected(order.id)
       await loadOrders()
     } catch (err) {
       setActionError(err.message)
@@ -223,6 +236,15 @@ function AdminOrders() {
                             >
                               View
                             </button>
+                            {order.paymentMethod === 'Cash on Delivery' && order.paymentStatus !== 'Paid' && (
+                              <button
+                                type="button"
+                                className="btn btn-outline-success btn-sm"
+                                onClick={() => handleMarkCodCollected(order)}
+                              >
+                                Mark Paid
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="btn btn-outline-danger btn-sm"
@@ -239,6 +261,10 @@ function AdminOrders() {
                         <tr>
                           <td colSpan="8" className="bg-light-subtle">
                             <div className="p-2">
+                              <div className="fw-semibold mb-1">Payment</div>
+                              <div className="small text-muted mb-2">
+                                {order.paymentMethod} &middot; <StatusBadge status={order.paymentStatus} />
+                              </div>
                               <div className="fw-semibold mb-1">Items</div>
                               {order.items.map((item) => (
                                 <div className="d-flex justify-content-between small" key={item.id}>

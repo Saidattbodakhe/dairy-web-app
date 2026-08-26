@@ -462,20 +462,25 @@ function Checkout() {
             <div className="card-plain p-4">
               <h2 className="h5 mb-3">Payment Method</h2>
               <div className="d-flex flex-wrap gap-2">
-                {paymentMethods.map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    className={`btn btn-sm ${form.paymentMethod === method ? 'btn-brand' : 'btn-outline-secondary'}`}
-                    onClick={() => updateField('paymentMethod', method)}
-                  >
-                    {method}
-                  </button>
-                ))}
+                {paymentMethods.map((method) => {
+                  const isComingSoon = method === 'Online Payment'
+                  return (
+                    <button
+                      key={method}
+                      type="button"
+                      className={`btn btn-sm ${form.paymentMethod === method ? 'btn-brand' : 'btn-outline-secondary'}`}
+                      onClick={() => updateField('paymentMethod', method)}
+                      disabled={isComingSoon}
+                      title={isComingSoon ? 'Online payment will be available soon.' : undefined}
+                    >
+                      {method}
+                    </button>
+                  )
+                })}
               </div>
               {errors.paymentMethod && <div className="text-danger small mt-2">{errors.paymentMethod}</div>}
               <p className="text-muted small mt-3 mb-0">
-                Demo phase only — no real payment gateway is connected yet.
+                Online payment will be available soon. Please select Cash on Delivery to place your order today.
               </p>
             </div>
           </div>
