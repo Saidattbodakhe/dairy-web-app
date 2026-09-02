@@ -152,6 +152,35 @@ export async function getCustomerOrderById(orderId) {
   return data ? mapOrderRow(data) : null
 }
 
+const ORDER_STATUS_HISTORY_SELECT = 'id, status, changed_by_type, changed_by_id, created_at'
+
+function mapOrderStatusHistoryRow(row) {
+  return {
+    id: row.id,
+    status: row.status,
+    changedByType: row.changed_by_type,
+    changedById: row.changed_by_id,
+    createdAt: row.created_at,
+  }
+}
+
+// RLS ("order_status_history_select_own" / "..._select_all_admin")
+// restricts this to the signed-in customer's own order, or any order
+// for an admin session — no ownership filter is passed or needed here.
+export async function getOrderStatusHistory(orderId) {
+  const { data, error } = await supabase
+    .from('order_status_history')
+    .select(ORDER_STATUS_HISTORY_SELECT)
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('getOrderStatusHistory failed:', error.message)
+    throw new Error('Unable to load order history. Please try again.')
+  }
+  return (data ?? []).map(mapOrderStatusHistoryRow)
+}
+
 export async function cancelCustomerOrder(orderId) {
   const { error } = await supabase.rpc('cancel_order', { p_order_id: orderId })
   if (error) {

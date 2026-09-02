@@ -3,7 +3,12 @@ import { Link, useParams } from 'react-router-dom'
 import StatusBadge from '../../components/StatusBadge'
 import StarRating from '../../components/StarRating'
 import DeliveryTracker from '../../components/DeliveryTracker'
-import { ORDER_STATUS_FLOW, getCustomerOrderById, cancelCustomerOrder } from '../../services/orderService'
+import {
+  ORDER_STATUS_FLOW,
+  getCustomerOrderById,
+  getOrderStatusHistory,
+  cancelCustomerOrder,
+} from '../../services/orderService'
 import { getReviewForOrder, submitReview } from '../../utils/reviews'
 
 // Matches cancel_order()'s customer-side rule in 0008_order_functions.sql
@@ -16,6 +21,10 @@ function OrderDetail() {
   const [order, setOrder] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+
+  const [history, setHistory] = useState([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const [historyError, setHistoryError] = useState('')
 
   const [isCancelling, setIsCancelling] = useState(false)
   const [cancelError, setCancelError] = useState('')
@@ -43,7 +52,23 @@ function OrderDetail() {
       }
     }
 
+    async function loadHistory() {
+      setIsLoadingHistory(true)
+      try {
+        const fetched = await getOrderStatusHistory(id)
+        if (isMounted) {
+          setHistory(fetched)
+          setHistoryError('')
+        }
+      } catch (err) {
+        if (isMounted) setHistoryError(err.message)
+      } finally {
+        if (isMounted) setIsLoadingHistory(false)
+      }
+    }
+
     loadOrder()
+    loadHistory()
     return () => {
       isMounted = false
     }
@@ -56,8 +81,12 @@ function OrderDetail() {
     setIsCancelling(true)
     try {
       await cancelCustomerOrder(order.id)
-      const refreshed = await getCustomerOrderById(id)
-      setOrder(refreshed)
+      const [refreshedOrder, refreshedHistory] = await Promise.all([
+        getCustomerOrderById(id),
+        getOrderStatusHistory(id),
+      ])
+      setOrder(refreshedOrder)
+      setHistory(refreshedHistory)
     } catch (err) {
       setCancelError(err.message)
     } finally {
@@ -151,6 +180,24 @@ function OrderDetail() {
           </div>
         </div>
       )}
+
+      <div className="card-plain p-4 mb-4">
+        <h2 className="h5 mb-3">Order Timeline</h2>
+        {isLoadingHistory ? (
+          <div className="text-muted small">Loading timeline…</div>
+        ) : historyError ? (
+          <div className="alert alert-danger small mb-0">{historyError}</div>
+        ) : history.length === 0 ? (
+          <p className="text-muted small mb-0">No timeline events yet.</p>
+        ) : (
+          history.map((entry) => (
+            <div key={entry.id} className="d-flex justify-content-between small text-muted mb-1">
+              <span>{entry.status}</span>
+              <span>{new Date(entry.createdAt).toLocaleString()}</span>
+            </div>
+          ))
+        )}
+      </div>
 
       {order.status === 'Out for Delivery' && (
         <div className="mb-4">
